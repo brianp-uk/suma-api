@@ -1,19 +1,33 @@
 #!/usr/bin/env python3
 
 # suma-list-systems.py
-# A script to extract the details of managed client systems from a SUSE Manager server using API.
+# A script to extract some details of managed client systems from a SUSE Manager server using API.
+# 
+# It can be used interactively, (no options) and will prompt for required
+# information, or non-interactively (-n switch) which reads parameters
+# from a .env file.
 # 
 # Credit: This script is based on the code example in the SUSE Manager 4.2 API documentation at:
 #         https://documentation.suse.com/suma/4.2/pdf/4.2_pdf_susemanager_api_doc_color_en.pdf, or
 #         https://documentation.suse.com/suma/4.2/api/suse-manager/index.html
 #
+# version 1.2 - 08-Aug-2022. Brian Petch, SUSE. Added check for the availability
+#                                               of the SUSE Manager server/API.
+#                                               Added check for the .env file.
+#
+# version 1.1 - 04-Aug-2022. Brian Petch, SUSE. Moved server FQDN and login credentials
+#                                               to a .env file, for improved security.
 # version 1.0 - 01-Jul-2022. Brian Petch, SUSE. Initial version.
 
 import sys
 import ssl
+import os
+#import os.path
+import urllib.request
+import requests
 from xmlrpc.client import ServerProxy
-
-#print("prog name:", sys.argv[0], "\tfirst arg:", sys.argv[1])
+from dotenv import load_dotenv
+load_dotenv()
 
 argc = len(sys.argv)               # Old (C) habits die hard...
 
@@ -22,14 +36,15 @@ Connect to the API of a SUSE Manager server and extract a list of managed client
 Options:\n\
  -n\t non-interactive mode\n\
  -h\t display help (this message)\n\
- --help\t display help (this message)\n\
+ --help\t display help (this message)\n\n\
 Interactive mode - call the script with no arguments.\n\
   You will be prompted for the FQDN of the SUSE Manager server and login/password.\n\
 Non-interactive mode - call the script with the -n switch.\n\
-  This requires the FQDN of the SUSE Manager server and login/password to be hardcoded into the script first.\n\n\
+  This requires the FQDN of the SUSE Manager server and login/password to be specified in a .env file.\n\n\
 Warnings:\n\
  Interactive mode will display the entered login/password credentials on screen.\n\
- Non-interactive mode involves leaving the login/password details in plain text inside the script. It is helpful for short term repeated usage, but it is recommended that they are deleted after use.\n"
+ Non-interactive mode involves storing the login/password details in plain text in a .env file.\n\
+ This is helpful for short term repeated usage, but it is recommended that the credentials are deleted after use.\n"
 
 if argc == 1:
     print("(interactive mode - Warning: credentials will be displayed on screen)")
@@ -46,37 +61,61 @@ else:
     elif sys.argv[1] == "-n":
         print("(non-interactive mode)")
     else:
-        print("Unknown switch.")
+        print("Unknown switch.\nTry:",sys.argv[0],"--help")
         exit(1)
 
-
-# To run in non-interactive mode, change the variables below to suit your environment.
-# Examples
-#MANAGER_URL = "https://manager.example.com/rpc/api"
-#MANAGER_LOGIN = "username"
-#MANAGER_PASSWORD = "password"
-MANAGER_URL = ""
-MANAGER_LOGIN = ""
-MANAGER_PASSWORD = ""
+# At this point, we either have one argument (-n, for non-interactive) or
+# no arguments (interactive).
 
 # In interactive mode, prompt for the SUMA server FQDN and the login/password.
 if argc == 1:
    MANAGER_FQDN = input("\nEnter the FQDN of the SUSE Manager server: ")
-   MANAGER_URL = 'https://' + MANAGER_FQDN + '/rpc/api'
+   MANAGER_URL = 'https://' + MANAGER_FQDN
+   MANAGER_API = 'https://' + MANAGER_FQDN + '/rpc/api'
    print ("\nEnter the SUSE Manager access credentials:")
    MANAGER_LOGIN = input("Login: ")
    MANAGER_PASSWORD = input("Password: ")
 
-# Should really add a test here, to check that the requested server is reachable on the network.
+# In non-interactive mode, the SUMA server FQDN and the login/password variables
+# are read from the .env file. 
+# Strictly, the if statement below is unnecessary, but left in for ease of 
+# future development.
+if argc == 2 and sys.argv[1] == "-n":           
 
-# From the example code;
-# You might need to set to set other options depending on your
-# server SSL configuartion and your local SSL configuration
+   # Check the .env file exists. 
+   file_exists = os.path.exists('.env')
+   if not file_exists :
+     print("Error: non-interactive mode: .env file not found")
+     exit(1)
+
+   MANAGER_FQDN=os.getenv("MANAGER_FQDN")
+   MANAGER_URL = 'https://' + MANAGER_FQDN
+   MANAGER_API = 'https://' + MANAGER_FQDN + '/rpc/api'
+   MANAGER_PASSWORD=os.getenv("MANAGER_PASSWORD")
+   MANAGER_LOGIN=os.getenv("MANAGER_LOGIN")
+
+def check_connectivity(URL):
+  try:
+      context = ssl._create_unverified_context()
+      request_url = urllib.request.urlopen(URL,context=context)
+      return True
+  except urllib.request.URLError:
+      return False
+
+SERVER_ALIVE = check_connectivity(MANAGER_API)
+
+if not SERVER_ALIVE :
+    print("Error: cannot reach the server and/or API at ",MANAGER_API)
+    exit(1)
+
+# From the example code in the SUSE Manager documentation:
+#   You might need to set to set other options depending on your
+#   server SSL configuartion and your local SSL configuration
 
 # Modified to handle the self-signed certificate that's on psuma.  MORE DOCS NEEDED on this.
 # context = ssl.create_default_context()     # the original code, using full SSL verification.
 context = ssl._create_unverified_context()
-client = ServerProxy(MANAGER_URL, context=context)
+client = ServerProxy(MANAGER_API, context=context)
 key = client.auth.login(MANAGER_LOGIN, MANAGER_PASSWORD)
 
 # Fill an array called system_list using call to the API method listSystems, via the XML-RPC client proxy.
