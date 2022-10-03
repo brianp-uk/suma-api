@@ -11,6 +11,10 @@
 #         https://documentation.suse.com/suma/4.2/pdf/4.2_pdf_susemanager_api_doc_color_en.pdf, or
 #         https://documentation.suse.com/suma/4.2/api/suse-manager/index.html
 #
+# version 1.3 - 27-Sep-2022. Brian Petch, SUSE. Changed the SUSE Manager password request in 
+#                                               interactive mode to use getpass() to avoid 
+#                                               displaying it on-screen. 
+#
 # version 1.2 - 08-Aug-2022. Brian Petch, SUSE. Added check for the availability
 #                                               of the SUSE Manager server/API.
 #                                               Added check for the .env file.
@@ -22,7 +26,7 @@
 import sys
 import ssl
 import os
-#import os.path
+import getpass
 import urllib.request
 import requests
 from xmlrpc.client import ServerProxy
@@ -41,13 +45,12 @@ Interactive mode - call the script with no arguments.\n\
   You will be prompted for the FQDN of the SUSE Manager server and login/password.\n\
 Non-interactive mode - call the script with the -n switch.\n\
   This requires the FQDN of the SUSE Manager server and login/password to be specified in a .env file.\n\n\
-Warnings:\n\
- Interactive mode will display the entered login/password credentials on screen.\n\
+Warning:\n\
  Non-interactive mode involves storing the login/password details in plain text in a .env file.\n\
  This is helpful for short term repeated usage, but it is recommended that the credentials are deleted after use.\n"
 
 if argc == 1:
-    print("(interactive mode - Warning: credentials will be displayed on screen)")
+    print("(interactive mode)")
 elif argc > 2:
     print("Too many arguments.")
     exit(1)
@@ -74,7 +77,8 @@ if argc == 1:
    MANAGER_API = 'https://' + MANAGER_FQDN + '/rpc/api'
    print ("\nEnter the SUSE Manager access credentials:")
    MANAGER_LOGIN = input("Login: ")
-   MANAGER_PASSWORD = input("Password: ")
+   #MANAGER_PASSWORD = input("Password: ")
+   MANAGER_PASSWORD = getpass.getpass(prompt="Password: ",stream=None)
 
 # In non-interactive mode, the SUMA server FQDN and the login/password variables
 # are read from the .env file. 
@@ -97,7 +101,7 @@ if argc == 2 and sys.argv[1] == "-n":
 def check_connectivity(URL):
   try:
       context = ssl._create_unverified_context()
-      request_url = urllib.request.urlopen(URL,context=context)
+      request_url = urllib.request.urlopen(URL,context=context,timeout=5)
       return True
   except urllib.request.URLError:
       return False
