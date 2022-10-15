@@ -11,11 +11,7 @@ It can also be run non-interactively via the -n switch, requiring the details to
 
 The script has been tested against the API for SUSE Manager version 4.2 and 4.3.0.
 
-A suggested improvement would be ;
-  - update to do parameter checking on server FQDN and login/password (all null by default).
-  
-  
-  Credits
-  Initial efforts leveraged the example code in the SUSE Manager API documentation at:
-  https://documentation.suse.com/suma/4.2/api/suse-manager/index.html
+Credits
+Initial efforts leveraged the example code in the SUSE Manager API documentation at:
+https://documentation.suse.com/suma/4.2/api/suse-manager/index.html
   

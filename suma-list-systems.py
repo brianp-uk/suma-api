@@ -11,6 +11,9 @@
 #         https://documentation.suse.com/suma/4.2/pdf/4.2_pdf_susemanager_api_doc_color_en.pdf, or
 #         https://documentation.suse.com/suma/4.2/api/suse-manager/index.html
 #
+# version 1.4 - 15-Oct-2022. Brian Petch, SUSE. Added a check to make sure required variables
+#                                               are set.
+#
 # version 1.3 - 27-Sep-2022. Brian Petch, SUSE. Changed the SUSE Manager password request in 
 #                                               interactive mode to use getpass() to avoid 
 #                                               displaying it on-screen. 
@@ -98,6 +101,12 @@ if argc == 2 and sys.argv[1] == "-n":
    MANAGER_PASSWORD=os.getenv("MANAGER_PASSWORD")
    MANAGER_LOGIN=os.getenv("MANAGER_LOGIN")
 
+# Check that the various variables have actually been set.
+for VAR in MANAGER_FQDN,MANAGER_LOGIN,MANAGER_PASSWORD:
+   if VAR == "":
+      print("Error: either MANAGER_FQDN, MANAGER_LOGIN, or MANAGER_PASSWORD is not set.")
+      exit(1)
+
 def check_connectivity(URL):
   try:
       context = ssl._create_unverified_context()
@@ -106,6 +115,7 @@ def check_connectivity(URL):
   except urllib.request.URLError:
       return False
 
+# Check we can reach the SUSE Manager server API.
 SERVER_ALIVE = check_connectivity(MANAGER_API)
 
 if not SERVER_ALIVE :
